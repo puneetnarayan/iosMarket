@@ -5,6 +5,7 @@ struct WatchListDetailView: View {
     @Bindable var watchList: WatchList
     @Environment(\.modelContext) private var modelContext
 
+    @AppStorage("spreadsheetID") private var spreadsheetID = ""
     @State private var isAddingScrip = false
     @State private var refreshError: String?
 
@@ -61,20 +62,23 @@ struct WatchListDetailView: View {
     }
 
     private func refreshPrices() async {
-        var hadFailure = false
-        for scrip in watchList.scrips where scrip.exchange == .nse {
-            do {
-                let quote = try await NSEService.shared.quote(for: scrip.symbol)
-                scrip.lastPrice = quote.lastPrice
+        do {
+            let quotes = try await GoogleSheetsService.shared.fetchQuotes(spreadsheetID: spreadsheetID)
+            var matchedAny = false
+            for scrip in watchList.scrips {
+                let key = "\(scrip.exchange.rawValue):\(scrip.symbol.uppercased())"
+                guard let quote = quotes[key] else { continue }
+                matchedAny = true
+                scrip.lastPrice = quote.price
                 scrip.lastChange = quote.change
                 scrip.lastPercentChange = quote.percentChange
                 scrip.lastUpdated = .now
-            } catch {
-                hadFailure = true
             }
-        }
-        if hadFailure {
-            refreshError = "Some prices couldn't be updated. NSE's unofficial endpoints can be flaky — pull to refresh again in a moment."
+            if !matchedAny && !watchList.scrips.isEmpty {
+                refreshError = "No matching rows found in the Google Sheet for these scrips. Check Settings and the Sheet layout in the README."
+            }
+        } catch {
+            refreshError = error.localizedDescription
         }
     }
 }

@@ -1,18 +1,17 @@
 import Foundation
 
-/// Talks to NSE India's own website JSON endpoints (nseindia.com/api/...).
+/// Talks to NSE India's own website JSON endpoint (nseindia.com/api/search/autocomplete)
+/// purely to help you find a company's symbol while adding it to a watchlist.
 ///
-/// IMPORTANT: These are UNOFFICIAL, undocumented endpoints the nseindia.com website itself
-/// uses — there is no public NSE API for third-party apps. They can change shape, start
+/// IMPORTANT: This is an UNOFFICIAL, undocumented endpoint the nseindia.com website itself
+/// uses — there is no public NSE API for third-party apps. It can change shape, start
 /// rejecting requests, or rate-limit without notice, and NSE's site terms may restrict
 /// automated access. This is provided for personal experimentation only; verify current
 /// behavior yourself (Safari/Chrome devtools -> Network tab on nseindia.com) if it stops
-/// working, and don't build anything beyond personal use on top of it without checking
-/// NSE's terms of use.
+/// working. If search stops working, you can still add any scrip manually in AddScripView.
 ///
-/// There is no equivalent implementation for BSE here — I don't have verified, current
-/// knowledge of a stable unofficial BSE JSON endpoint, so BSE scrips are added manually
-/// (see AddScripView) without live price fetching.
+/// Live prices are NOT fetched here — see GoogleSheetsService, which reads them from a
+/// Google Sheet using GOOGLEFINANCE(), covering both NSE and BSE.
 actor NSEService {
     static let shared = NSEService()
 
@@ -38,7 +37,7 @@ actor NSEService {
 
     /// NSE's API rejects cold requests that don't already carry cookies from a normal
     /// page load. Loading the homepage once per app session picks up those cookies
-    /// before we call the JSON endpoints. This is a commonly used workaround, not a
+    /// before we call the JSON endpoint. This is a commonly used workaround, not a
     /// guaranteed contract with NSE, and may stop working if their bot-protection changes.
     private func warmUpSessionIfNeeded() async {
         guard !hasWarmedUpSession else { return }
@@ -52,12 +51,6 @@ actor NSEService {
         var id: String { symbol }
         let symbol: String
         let companyName: String
-    }
-
-    struct Quote {
-        let lastPrice: Double
-        let change: Double
-        let percentChange: Double
     }
 
     func search(_ query: String) async throws -> [SearchResult] {
@@ -77,26 +70,6 @@ actor NSEService {
         return decoded.symbols.map { SearchResult(symbol: $0.symbol, companyName: $0.symbol_info) }
     }
 
-    func quote(for symbol: String) async throws -> Quote {
-        await warmUpSessionIfNeeded()
-
-        var components = URLComponents(string: "https://www.nseindia.com/api/quote-equity")!
-        components.queryItems = [URLQueryItem(name: "symbol", value: symbol)]
-
-        var request = URLRequest(url: components.url!)
-        commonHeaders.forEach { request.setValue($1, forHTTPHeaderField: $0) }
-
-        let (data, response) = try await session.data(for: request)
-        try Self.validate(response)
-
-        let decoded = try JSONDecoder().decode(QuoteResponse.self, from: data)
-        return Quote(
-            lastPrice: decoded.priceInfo.lastPrice,
-            change: decoded.priceInfo.change,
-            percentChange: decoded.priceInfo.pChange
-        )
-    }
-
     private static func validate(_ response: URLResponse) throws {
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             throw NSEServiceError.requestFailed
@@ -109,15 +82,6 @@ actor NSEService {
             let symbol_info: String
         }
         let symbols: [Symbol]
-    }
-
-    private struct QuoteResponse: Decodable {
-        struct PriceInfo: Decodable {
-            let lastPrice: Double
-            let change: Double
-            let pChange: Double
-        }
-        let priceInfo: PriceInfo
     }
 }
 

@@ -7,6 +7,8 @@ struct AddScripView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
+    @AppStorage("spreadsheetID") private var spreadsheetID = ""
+
     @State private var query = ""
     @State private var results: [NSEService.SearchResult] = []
     @State private var isSearching = false
@@ -71,7 +73,7 @@ struct AddScripView: View {
                 } header: {
                     Text("Add Manually")
                 } footer: {
-                    Text("Live prices are only fetched for NSE scrips added here or found via search above. BSE scrips are tracked without automatic price updates.")
+                    Text("Adding a scrip appends a GOOGLEFINANCE row to your prices Google Sheet, so it needs to be configured in Settings first — otherwise the scrip is still added, just without a price row.")
                 }
             }
             .searchable(text: $query, prompt: "Search NSE by company or symbol")
@@ -114,6 +116,7 @@ struct AddScripView: View {
         scrip.watchList = watchList
         modelContext.insert(scrip)
         addedSymbols.insert(result.symbol)
+        appendToPricesSheet(symbol: result.symbol, exchange: .nse)
     }
 
     private func addManually() {
@@ -124,8 +127,23 @@ struct AddScripView: View {
         let scrip = Scrip(symbol: symbol, companyName: name, exchange: manualExchange)
         scrip.watchList = watchList
         modelContext.insert(scrip)
+        appendToPricesSheet(symbol: symbol, exchange: manualExchange)
 
         manualCompanyName = ""
         manualSymbol = ""
+    }
+
+    /// Best-effort: the scrip is already added locally regardless of whether this succeeds
+    /// (no Google Sheet configured yet, not signed in, offline, etc.) — refreshing prices
+    /// later will simply find no matching row for it until the sheet is set up.
+    private func appendToPricesSheet(symbol: String, exchange: Exchange) {
+        guard !spreadsheetID.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        Task {
+            try? await GoogleSheetsService.shared.appendScripRow(
+                spreadsheetID: spreadsheetID,
+                symbol: symbol,
+                exchange: exchange
+            )
+        }
     }
 }

@@ -8,14 +8,27 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: MarketWatch
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: MarketWatch
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        # Fill in after creating an iOS OAuth client ID in Google Cloud Console (see README).
+        GoogleOAuthClientID: "$(GOOGLE_OAUTH_CLIENT_ID)"
+        CFBundleURLTypes:
+          - CFBundleURLSchemes:
+              - "$(GOOGLE_REVERSED_CLIENT_ID)"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.marketwatch.app
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1,2"
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        INFOPLIST_KEY_CFBundleDisplayName: MarketWatch
-        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: "1"
+        # Replace both with values from your Google Cloud Console iOS OAuth client, e.g.
+        # GOOGLE_OAUTH_CLIENT_ID:     1234567890-abc123.apps.googleusercontent.com
+        # GOOGLE_REVERSED_CLIENT_ID: com.googleusercontent.apps.1234567890-abc123
+        GOOGLE_OAUTH_CLIENT_ID: "YOUR_CLIENT_ID.apps.googleusercontent.com"
+        GOOGLE_REVERSED_CLIENT_ID: "com.googleusercontent.apps.YOUR_CLIENT_ID"

@@ -9,6 +9,7 @@ struct WatchListsView: View {
     @State private var newListName = ""
     @State private var renamingList: WatchList?
     @State private var renameText = ""
+    @State private var isShowingSettings = false
 
     var body: some View {
         NavigationStack {
@@ -43,6 +44,13 @@ struct WatchListsView: View {
                 WatchListDetailView(watchList: list)
             }
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        isShowingSettings = true
+                    } label: {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         newListName = ""
@@ -51,6 +59,9 @@ struct WatchListsView: View {
                         Label("New List", systemImage: "plus")
                     }
                 }
+            }
+            .sheet(isPresented: $isShowingSettings) {
+                SettingsView()
             }
             .overlay {
                 if watchLists.isEmpty {
